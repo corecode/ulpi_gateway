@@ -9,6 +9,8 @@ interface ulpi_if(input wire clk);
       output   nxt;
       input    nxt;
       inout    data;
+
+      default input #1 output #0;
    endclocking // phy_cb
 
    modport link(input clk,

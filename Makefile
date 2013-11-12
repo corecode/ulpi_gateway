@@ -1,17 +1,17 @@
-SRCS=	ulpi.v
-PROGS=	${SRCS:.v=_tb}
+SRCS=	ulpi_link.sv ulpi_if.sv
+TBS=	ulpi_tb.sv
 
-all: compile simulate
+MODELSIMDIR?=	/opt/altera/13.1/modelsim_ase/linux
 
-compile: ${PROGS}
+all: simulate
 
-simulate: $(patsubst %,simulate-%,${PROGS})
+work:
+	${MODELSIMDIR}/vlib work
 
-simulate-%: %
-	./$^
+compile: work ${SRCS} ${TBS}
+	${MODELSIMDIR}/vlog ${SRCS} ${TBS}
 
-%_tb: %.v
-	iverilog -Wall -s $@ -o $@ $^
+simulate: $(patsubst %.sv,%.vcd,${TBS})
 
-%.vcd: %
-	./$^
+%.vcd: compile
+	${MODELSIMDIR}/vsim -c -do 'run 1000ns;quit' ${@:.vcd=}

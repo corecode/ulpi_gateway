@@ -1,0 +1,10 @@
+*.log
+transcript
+*_log
+*.arearep
+*.ve
+ulpi_gateway_Implmnt
+work
+*.twr
+*.vcd
+synlog.tcl

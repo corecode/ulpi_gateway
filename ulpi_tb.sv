@@ -7,16 +7,32 @@ module ulpi_tb_syn(ulpi_link_if.tb ulif, ulpi_if.tb uif);
         uif.cb.data <= data;
       else begin
          $display("%d: writing output %x while dir is disabled", $time, data);
-         uif.cb.data <= 8'hxx;
+         uif.cb.data <= 8'hx;
       end
       @(uif.cb);
-   endtask // write_rx_cmd
+   endtask
 
    task turn_output;
       if (!uif.dir) begin
          uif.cb.dir <= 1;
          @(uif.cb);
       end
+   endtask
+
+   task turn_input;
+      if (uif.dir) begin
+         uif.cb.data <= 8'hz;
+         uif.cb.dir <= 0;
+         @(uif.cb);
+      end
+   endtask
+
+   task send_incoming_data(int len);
+      uif.cb.nxt <= 1;
+      repeat (len) begin
+         write_data($random());
+      end
+      uif.cb.nxt <= 0;
    endtask
 
    initial begin
@@ -28,7 +44,14 @@ module ulpi_tb_syn(ulpi_link_if.tb ulif, ulpi_if.tb uif);
 
       turn_output;
       write_data(8'h23);
+      turn_input;
+      turn_output;
       write_data(8'h42);
+      send_incoming_data(4);
+      write_data(8'hf0);
+      send_incoming_data(4);
+      write_data(8'h23);
+      turn_input;
    end
 endmodule
 

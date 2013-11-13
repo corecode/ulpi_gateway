@@ -7,6 +7,16 @@ interface ulpi_link_if(input wire clk);
    logic       cmd_strobe;
    logic       cmd_busy;
 
+   modport link(input clk,
+                input  reset,
+                output data,
+                output data_valid,
+                output rx_cmd,
+                input  cmd,
+                input  cmd_strobe,
+                output cmd_busy);
+
+`ifndef synthesis
    clocking cb @(posedge clk);
       input    data;
       input    data_valid;
@@ -18,15 +28,7 @@ interface ulpi_link_if(input wire clk);
       default input #1 output #0;
    endclocking // phy_cb
 
-   modport link(input clk,
-                input  reset,
-                output data,
-                output data_valid,
-                output rx_cmd,
-                input  cmd,
-                input  cmd_strobe,
-                output cmd_busy);
-
    modport tb(clocking cb, input clk, output reset);
+`endif
 
 endinterface

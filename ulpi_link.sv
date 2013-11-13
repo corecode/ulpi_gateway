@@ -20,13 +20,13 @@ module ulpi_link (
    logic        is_bus_turnaround;
 
 
-   always @(posedge uif.clk or posedge ulif.reset)
+   always_ff @(posedge uif.clk or posedge ulif.reset)
      if (ulif.reset)
        ulpi_nxt_r <= 0;
      else
        ulpi_nxt_r <= uif.nxt;
 
-   always @(posedge uif.clk or posedge ulif.reset)
+   always_ff @(posedge uif.clk or posedge ulif.reset)
      if (ulif.reset)
        ulpi_dir_r <= 0;
      else
@@ -36,7 +36,7 @@ module ulpi_link (
 
    assign valid_rx_data = uif.dir && !is_bus_turnaround;
 
-   always @(posedge uif.clk or posedge ulif.reset)
+   always_ff @(posedge uif.clk or posedge ulif.reset)
      if (ulif.reset)
        ulif.rx_cmd <= 0;
      else begin
@@ -44,13 +44,13 @@ module ulpi_link (
          ulif.rx_cmd <= uif.data;
      end
 
-   always @(posedge uif.clk or posedge ulif.reset)
+   always_ff @(posedge uif.clk or posedge ulif.reset)
      if (ulif.reset)
        ulif.data <= 0;
-     else
+     else if (valid_rx_data && uif.nxt)
        ulif.data <= uif.data;
 
-   always @(posedge uif.clk or posedge ulif.reset)
+   always_ff @(posedge uif.clk or posedge ulif.reset)
      if (ulif.reset)
        ulif.data_valid <= 0;
      else begin
@@ -62,5 +62,15 @@ module ulpi_link (
 
    // XXX
    assign uif.data = (uif.dir | is_bus_turnaround) ? 8'hzz : (ulif.cmd_strobe ? ulif.cmd : NOOP);
+
+   always_ff @(posedge uif.clk or posedge ulif.reset)
+     if (ulif.reset)
+       uif.stp <= 0;
+
+
+   always_ff @(posedge uif.clk or posedge ulif.reset)
+     if (ulif.reset)
+       ulif.cmd_busy <= 0;
+
 
 endmodule // uif

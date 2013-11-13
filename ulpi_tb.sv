@@ -1,43 +1,68 @@
+module ulpi_tb_syn(ulpi_link_if.tb ulif, ulpi_if.tb uif);
+   default clocking @uif.cb;
+   endclocking;
+
+   task write_data(input logic [7:0] data);
+      if (uif.dir)
+        uif.cb.data <= data;
+      else begin
+         $display("%d: writing output %x while dir is disabled", $time, data);
+         uif.cb.data <= 8'hxx;
+      end
+      @(uif.cb);
+   endtask // write_rx_cmd
+
+   task turn_output;
+      if (!uif.dir) begin
+         uif.cb.dir <= 1;
+         @(uif.cb);
+      end
+   endtask
+
+   initial begin
+      ulif.reset <= 0;
+      #5 ulif.reset <= 1;
+      #20 ulif.reset <= 0;
+      repeat (2)
+        @(uif.cb);
+
+      turn_output;
+      write_data(8'h23);
+      write_data(8'h42);
+   end
+endmodule
+
 module ulpi_tb;
    logic clk;
-   logic reset;
 
-   logic [7:0] sys_data;
-   logic       sys_data_valid;
-
-   logic [7:0] sys_cmd;
-   logic [7:0] sys_rx_cmd;
-   logic       sys_cmd_strobe;
-   logic       sys_cmd_busy;
-
-   ulpi_if ulpi(.*);
-
+   ulpi_if uif(.*);
+   ulpi_link_if ulif(.*);
    ulpi_link ulpi_link(.*);
 
    initial begin
-      reset <= 1;
-      sys_cmd_strobe <= 0;
-      sys_cmd <= 0;
-
-      repeat (2)
-        @(posedge clk);
-      reset <= 0;
+      $dumpfile("ulpi_tb.vcd");
+      $dumpvars(0, ulpi_tb);
+      $dumpvars(0, uif);
+      $dumpvars(0, ulif);
    end
+
+   initial #500 $finish;
 
    initial begin
       clk = 0;
-      #20;
+      #5;
       forever
-        #10 clk++;
+        #5 clk++;
+   end
+
+   initial begin
+      uif.cb.dir <= 0;
+      uif.nxt <= 0;
+      ulif.cmd_strobe <= 0;
+      ulif.cmd <= 0;
    end
 
 
-   initial
-     begin
-        $dumpfile("ulpi_tb.vcd");
-        $dumpvars(0, ulpi_tb);
-     end
-
-   initial #500 $finish;
+   ulpi_tb_syn ulpi_tb_syn(.*);
 
 endmodule

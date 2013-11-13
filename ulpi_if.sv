@@ -4,10 +4,10 @@ interface ulpi_if(input wire clk);
    logic       stp;
    tri [7:0]   data;
 
-   clocking cl @(posedge clk);
+   clocking cb @(posedge clk);
       output   dir;
       output   nxt;
-      input    nxt;
+      input    stp;
       inout    data;
 
       default input #1 output #0;
@@ -19,6 +19,6 @@ interface ulpi_if(input wire clk);
                 output stp,
                 inout  data);
 
-   modport tb(clocking cl, input clk);
+   modport tb(clocking cb, input dir, input clk);
 
 endinterface

@@ -2,74 +2,65 @@
 
 module ulpi_link (
   // ULPI physical
-  ulpi_if.link ulpi,
+  ulpi_if.link uif,
 
   // system
-  input logic       reset,
-
-  output logic [7:0] sys_data,
-  output logic       sys_data_valid,
-  output logic [7:0] sys_rx_cmd,
-
-  input logic [7:0] sys_cmd,
-  input logic       sys_cmd_strobe,
-  output logic      sys_cmd_busy
+  ulpi_link_if.link ulif
 );
 
    typedef enum logic [7:0] {
      NOOP = 8'h00
    } UlpiCmd;
 
-   logic                         ulpi_nxt_r;
+   logic        ulpi_nxt_r;
 
-   logic                         ulpi_dir_r;
-   logic                        ulpi_dir_changed;
+   logic        ulpi_dir_r;
 
-   logic                        valid_rx_data;
-   logic                        is_bus_turnaround;
+   logic        valid_rx_data;
+   logic        is_bus_turnaround;
 
 
-   always @(posedge ulpi.clk or posedge reset)
-     if (reset)
+   always @(posedge uif.clk or posedge ulif.reset)
+     if (ulif.reset)
        ulpi_nxt_r <= 0;
      else
-       ulpi_nxt_r <= ulpi.nxt;
+       ulpi_nxt_r <= uif.nxt;
 
-   always @(posedge ulpi.clk or posedge reset)
-     if (reset)
+   always @(posedge uif.clk or posedge ulif.reset)
+     if (ulif.reset)
        ulpi_dir_r <= 0;
      else
-       ulpi_dir_r <= ulpi.dir;
+       ulpi_dir_r <= uif.dir;
 
-   assign is_bus_turnaround = ulpi.dir != ulpi_dir_r;
+   assign is_bus_turnaround = uif.dir != ulpi_dir_r;
 
-   assign valid_rx_data = ulpi.dir && !is_bus_turnaround;
+   assign valid_rx_data = uif.dir && !is_bus_turnaround;
 
-   always @(posedge ulpi.clk or posedge reset)
-     if (reset)
-       sys_rx_cmd <= 0;
+   always @(posedge uif.clk or posedge ulif.reset)
+     if (ulif.reset)
+       ulif.rx_cmd <= 0;
      else begin
-       if (valid_rx_data && !ulpi.nxt)
-         sys_rx_cmd <= ulpi.data;
+       if (valid_rx_data && !uif.nxt)
+         ulif.rx_cmd <= uif.data;
      end
 
-   always @(posedge ulpi.clk or posedge reset)
-     if (reset)
-       sys_data <= 0;
+   always @(posedge uif.clk or posedge ulif.reset)
+     if (ulif.reset)
+       ulif.data <= 0;
      else
-       sys_data <= ulpi.data;
+       ulif.data <= uif.data;
 
-   always @(posedge ulpi.clk or posedge reset)
-     if (reset)
-       sys_data_valid <= 0;
+   always @(posedge uif.clk or posedge ulif.reset)
+     if (ulif.reset)
+       ulif.data_valid <= 0;
      else begin
-       if (valid_rx_data && ulpi.nxt)
-         sys_data_valid <= 1;
+       if (valid_rx_data && uif.nxt)
+         ulif.data_valid <= 1;
        else
-         sys_data_valid <= 0;
+         ulif.data_valid <= 0;
      end
 
    // XXX
-   assign ulpi.data = (ulpi.dir | is_bus_turnaround) ? 8'hzz : (sys_cmd_strobe ? sys_cmd : NOOP);
+   assign uif.data = (uif.dir | is_bus_turnaround) ? 8'hzz : (ulif.cmd_strobe ? ulif.cmd : NOOP);
 
-endmodule // ulpi
+endmodule // uif

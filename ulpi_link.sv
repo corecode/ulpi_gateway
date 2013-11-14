@@ -60,17 +60,36 @@ module ulpi_link (
          ulif.data_valid <= 0;
      end
 
-   // XXX
-   assign uif.data = (uif.dir | is_bus_turnaround) ? 8'hzz : (ulif.cmd_strobe ? ulif.cmd : NOOP);
+
+   logic tx_active;
+
+   always_comb begin
+      ulif.cmd_busy <= 0;
+      if (uif.dir || is_bus_turnaround)
+        ulif.cmd_busy <= 1;
+      if (ulif.cmd_strobe && !uif.nxt)
+        ulif.cmd_busy <= 1;
+   end
+
+
+   logic [7:0]  out_cmd;
+
+   always_comb begin
+      if (!ulif.cmd_strobe)
+        out_cmd <= NOOP;
+      else
+        out_cmd <= ulif.cmd;
+   end
+
+   assign uif.data = (uif.dir || is_bus_turnaround) ? 8'hzz : out_cmd;
+
 
    always_ff @(posedge uif.clk or posedge ulif.reset)
      if (ulif.reset)
        uif.stp <= 0;
-
-
-   always_ff @(posedge uif.clk or posedge ulif.reset)
-     if (ulif.reset)
-       ulif.cmd_busy <= 0;
+     else begin
+        uif.stp <= 0;
+     end
 
 
 endmodule // uif

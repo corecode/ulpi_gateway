@@ -27,13 +27,51 @@ module ulpi_tb_syn(ulpi_link_if.tb ulif, ulpi_if.tb uif);
       end
    endtask
 
+   // phy -> link
    task send_incoming_data(int len);
       uif.cb.nxt <= 1;
       repeat (len) begin
          write_data($random());
       end
       uif.cb.nxt <= 0;
-   endtask
+   endtask // send_incoming_data
+
+   // system -> link
+   task send_cmd(int len);
+      logic [7:0] cmd;
+
+      repeat (len) begin
+         cmd = $random();
+         ulif.cb.cmd <= cmd;
+         $display("cmd out: %h", cmd);
+
+         ulif.cb.cmd_strobe <= 1;
+         do
+           @(ulif.cb);
+         while (ulif.cb.cmd_busy);
+         ulif.cb.cmd_strobe <= 0;
+      end
+   endtask // send_cmd
+
+   always @(uif.cb.data) begin
+      int r;
+
+      while (!uif.dir && uif.cb.data != 8'h00) begin
+         $display("%d: data %x", $time, uif.cb.data);
+         forever begin
+            r = $random();
+            if (r & 1) begin
+               break;
+            end
+            $display("%d: wait", $time);
+            @(uif.cb);
+         end // forever begin
+         uif.cb.nxt <= 1;
+         ##1;
+         @(uif.cb);
+         uif.cb.nxt <= 0;
+      end
+   end
 
    initial begin
       ulif.reset <= 0;
@@ -52,6 +90,10 @@ module ulpi_tb_syn(ulpi_link_if.tb ulif, ulpi_if.tb uif);
       send_incoming_data(4);
       write_data(8'h23);
       turn_input;
+
+      repeat (3)
+        @(uif.cb);
+      send_cmd(4);
    end
 endmodule
 

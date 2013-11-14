@@ -5,7 +5,16 @@ SYNPLIFYPRJ=	ulpi_gateway_syn.prj
 MODELSIMDIR?=	/opt/altera/13.1/modelsim_ase/linux
 ICECUBEDIR?=	/opt/lscc/iCEcube2.2013.03
 
-SYNPLIFY?=	LD_LIBRARY_PATH=${ICECUBEDIR}/sbt_backend/bin/linux/opt/synpwrap SYNPLIFY_PATH=${ICECUBEDIR}/synpbase ${ICECUBEDIR}/sbt_backend/bin/linux/opt/synpwrap/synpwrap -prj ${SYNPLIFYPRJ}
+define synplify_get_impl
+$(shell awk '$$1 == "impl" && $$2 == "-active" { print $$3 }' ${SYNPLIFYPRJ})
+endef
+
+define SYNPLIFY ?=
+LD_LIBRARY_PATH=${ICECUBEDIR}/sbt_backend/bin/linux/opt/synpwrap \
+SYNPLIFY_PATH=${ICECUBEDIR}/synpbase \
+${ICECUBEDIR}/sbt_backend/bin/linux/opt/synpwrap/synpwrap -prj ${SYNPLIFYPRJ};
+cat $(call synplify_get_impl)/synlog/report/*.txt
+endef
 
 all: simulate
 

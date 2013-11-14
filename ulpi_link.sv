@@ -54,47 +54,50 @@ module ulpi_link (
 
 
    logic [7:0] out_cmd;
-   enum logic [1:0] {
-         IDLE = 2'b00,
-         CMD = 2'b01,
-         FINISH = 2'b10
+   enum logic [2:0] {
+         IDLE = 3'b001,
+         CMD = 3'b010,
+         FINISH = 3'b100
    } cmd_state;
 
-   always_ff @(posedge uif.clk or posedge ulif.reset)
+   always_ff @(posedge uif.clk or posedge ulif.reset) begin
      if (ulif.reset) begin
         cmd_state <= IDLE;
         uif.stp   <= 0;
         out_cmd   <= NOOP;
      end else begin
         uif.stp <= 0;
-        case (cmd_state)
-          IDLE: begin
-             out_cmd <= NOOP;
-             if (!ulif.cmd_busy && ulif.cmd_strobe) begin
-                out_cmd   <= ulif.cmd;
-                cmd_state <= CMD;
-             end
-          end
-          CMD:
-            if (!ulif.cmd_busy && ulif.cmd_strobe) begin
-               out_cmd   <= ulif.cmd;
-               cmd_state <= CMD;
-            end else if (!ulif.cmd_strobe) begin
-               if (uif.nxt) begin
-                  cmd_state <= IDLE;
-                  uif.stp   <= 1;
-                  out_cmd   <= 8'h00; // success
-               end else
-                 cmd_state <= FINISH;
-            end
-          FINISH:
-            if (uif.nxt) begin
-               cmd_state <= IDLE;
-               uif.stp   <= 1;
-               out_cmd   <= 8'h00; // success
-            end
-        endcase
+
+        if (cmd_state == IDLE)
+          out_cmd <= NOOP;
+
+        /*
+         * If we're (still) receiving, pass the data if it is
+         * valid and there is space on the output bus.
+         */
+        if ((cmd_state == IDLE || cmd_state == CMD) &&
+            (!ulif.cmd_busy && ulif.cmd_strobe)) begin
+           out_cmd   <= ulif.cmd;
+           cmd_state <= CMD;
+        end
+
+        /*
+         * If there is no more data, or we're about to finish, we finish.
+         */
+        if (cmd_state == CMD && !ulif.cmd_strobe ||
+            cmd_state == FINISH) begin
+           cmd_state <= FINISH;
+           /*
+            * Only signal STP when the PHY says NXT.
+            */
+           if (uif.nxt) begin
+              cmd_state <= IDLE;
+              uif.stp   <= 1;
+              out_cmd   <= 8'h00; // success
+           end
+        end
      end
+   end
 
    always_comb begin
       ulif.cmd_busy <= 0;

@@ -13,6 +13,7 @@ module ulpi_tb_syn(ulpi_link_if.tb ulif, ulpi_if.tb uif);
    endtask
 
    task turn_output;
+      disable phy_recv_cmd;
       if (!uif.dir) begin
          uif.cb.dir <= 1;
          @(uif.cb);
@@ -40,10 +41,11 @@ module ulpi_tb_syn(ulpi_link_if.tb ulif, ulpi_if.tb uif);
    task send_cmd(int len);
       logic [7:0] cmd;
 
+      $display("%d: sending %d bytes", $time, len);
       repeat (len) begin
          cmd = $random();
          ulif.cb.cmd <= cmd;
-         $display("cmd out: %h", cmd);
+         $display("%d: cmd out %h", $time, cmd);
 
          ulif.cb.cmd_strobe <= 1;
          do
@@ -51,13 +53,14 @@ module ulpi_tb_syn(ulpi_link_if.tb ulif, ulpi_if.tb uif);
          while (ulif.cb.cmd_busy);
          ulif.cb.cmd_strobe <= 0;
       end
+      @(ulif.cb);
    endtask // send_cmd
 
    task phy_recv_cmd;
-      automatic int waiting = 0;
+      automatic int waiting = 1;
       automatic int r;
 
-      $display("incoming cmd");
+      $display("%d: incoming cmd", $time);
       while (!uif.cb.stp) begin
          if (!waiting)
            $display("%d: data %x", $time, uif.cb.data);
@@ -75,7 +78,7 @@ module ulpi_tb_syn(ulpi_link_if.tb ulif, ulpi_if.tb uif);
          @(uif.cb);
          uif.cb.nxt <= 0;
       end
-      $display("end cmd: %x", uif.cb.data);
+      $display("%d: end cmd: %x", $time, uif.cb.data);
    endtask
 
 
@@ -104,7 +107,17 @@ module ulpi_tb_syn(ulpi_link_if.tb ulif, ulpi_if.tb uif);
 
       repeat (3)
         @(uif.cb);
-      send_cmd(6);
+      send_cmd(4);
+      fork
+         begin
+            repeat (4)
+              @(uif.cb);
+            turn_output;
+            send_incoming_data(3);
+            turn_input;
+         end
+         send_cmd(3);
+      join
    end
 endmodule
 

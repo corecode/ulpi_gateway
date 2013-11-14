@@ -12,19 +12,11 @@ module ulpi_link (
      NOOP = 8'h00
    } UlpiCmd;
 
-   logic        ulpi_nxt_r;
-
    logic        ulpi_dir_r;
 
    logic        valid_rx_data;
    logic        is_bus_turnaround;
 
-
-   always_ff @(posedge uif.clk or posedge ulif.reset)
-     if (ulif.reset)
-       ulpi_nxt_r <= 0;
-     else
-       ulpi_nxt_r <= uif.nxt;
 
    always_ff @(posedge uif.clk or posedge ulif.reset)
      if (ulif.reset)
@@ -61,44 +53,61 @@ module ulpi_link (
      end
 
 
-   logic tx_active;
    logic [7:0] out_cmd;
+   enum logic [1:0] {
+         IDLE = 2'b00,
+         CMD = 2'b01,
+         FINISH = 2'b10
+   } cmd_state;
 
-   always_ff @(posedge ulif.clk or posedge ulif.reset)
+   always_ff @(posedge uif.clk or posedge ulif.reset)
      if (ulif.reset) begin
-        out_cmd <= NOOP;
-        tx_active <= 0;
+        cmd_state <= IDLE;
+        uif.stp   <= 0;
+        out_cmd   <= NOOP;
      end else begin
-        if (!ulif.cmd_strobe) begin
-           out_cmd <= NOOP;
-           tx_active <= 0;
-        end else if (!ulif.cmd_busy) begin
-           out_cmd <= ulif.cmd;
-           tx_active <= 1;
-        end
+        uif.stp <= 0;
+        case (cmd_state)
+          IDLE: begin
+             out_cmd <= NOOP;
+             if (!ulif.cmd_busy && ulif.cmd_strobe) begin
+                out_cmd   <= ulif.cmd;
+                cmd_state <= CMD;
+             end
+          end
+          CMD:
+            if (!ulif.cmd_busy && ulif.cmd_strobe) begin
+               out_cmd   <= ulif.cmd;
+               cmd_state <= CMD;
+            end else if (!ulif.cmd_strobe) begin
+               if (uif.nxt) begin
+                  cmd_state <= IDLE;
+                  uif.stp   <= 1;
+                  out_cmd   <= 8'h00; // success
+               end else
+                 cmd_state <= FINISH;
+            end
+          FINISH:
+            if (uif.nxt) begin
+               cmd_state <= IDLE;
+               uif.stp   <= 1;
+               out_cmd   <= 8'h00; // success
+            end
+        endcase
      end
 
    always_comb begin
       ulif.cmd_busy <= 0;
       if (uif.dir || is_bus_turnaround)
         ulif.cmd_busy <= 1;
-      if (tx_active && !uif.nxt)
+      if (cmd_state == CMD && !uif.nxt)
+        ulif.cmd_busy <= 1;
+      if (cmd_state == FINISH)
         ulif.cmd_busy <= 1;
    end
 
 
    assign uif.data = (uif.dir || is_bus_turnaround) ? 8'hzz : out_cmd;
-
-
-   always_ff @(posedge uif.clk or posedge ulif.reset)
-     if (ulif.reset)
-       uif.stp <= 0;
-     else begin
-        if (tx_active && !ulif.cmd_strobe)
-          uif.stp <= 1;
-        else
-          uif.stp <= 0;
-     end
 
 
 endmodule // uif

@@ -53,24 +53,35 @@ module ulpi_tb_syn(ulpi_link_if.tb ulif, ulpi_if.tb uif);
       end
    endtask // send_cmd
 
-   always @(uif.cb.data) begin
-      int r;
+   task phy_recv_cmd;
+      automatic int waiting = 0;
+      automatic int r;
 
-      while (!uif.dir && uif.cb.data != 8'h00) begin
-         $display("%d: data %x", $time, uif.cb.data);
-         forever begin
-            r = $random();
-            if (r & 1) begin
-               break;
-            end
-            $display("%d: wait", $time);
-            @(uif.cb);
-         end // forever begin
-         uif.cb.nxt <= 1;
-         ##1;
+      $display("incoming cmd");
+      while (!uif.cb.stp) begin
+         if (!waiting)
+           $display("%d: data %x", $time, uif.cb.data);
+
+         r = $random();
+         if (r & 1)
+           waiting  = 0;
+         else
+           waiting  = 1;
+
+         if (waiting)
+           $display("%d: wait", $time);
+
+         uif.cb.nxt <= !waiting;
          @(uif.cb);
          uif.cb.nxt <= 0;
       end
+      $display("end cmd: %x", uif.cb.data);
+   endtask
+
+
+   always_ff @(uif.cb) begin
+      if (uif.dir == 0 && uif.cb.data != 8'h00)
+        phy_recv_cmd;
    end
 
    initial begin
@@ -93,7 +104,7 @@ module ulpi_tb_syn(ulpi_link_if.tb ulif, ulpi_if.tb uif);
 
       repeat (3)
         @(uif.cb);
-      send_cmd(4);
+      send_cmd(6);
    end
 endmodule
 

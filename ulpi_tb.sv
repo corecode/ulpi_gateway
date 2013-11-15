@@ -146,6 +146,7 @@ module ulpi_tb;
 
    initial begin
       uif.cb.dir <= 0;
+      uif.dir <= 0;
       uif.nxt <= 0;
       ulif.cmd_strobe <= 0;
       ulif.cmd <= 0;

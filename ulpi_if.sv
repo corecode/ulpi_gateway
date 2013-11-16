@@ -17,7 +17,7 @@ interface ulpi_if(input wire clk);
       input    stp;
       inout    data;
 
-      default input #1 output #0;
+      default input #1step output #4;
    endclocking // phy_cb
 
    modport tb(clocking cb, input dir, input clk);

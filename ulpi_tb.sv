@@ -2,6 +2,25 @@ module ulpi_tb_syn(ulpi_link_if.tb ulif, ulpi_if.tb uif);
    default clocking @uif.cb;
    endclocking;
 
+   logic driving_out;
+
+   task turn_output;
+      driving_out = 1;
+      disable phy_recv_cmd;
+      uif.cb.dir <= 1;
+      if (!uif.dir) begin
+         @(uif.cb);
+      end
+   endtask
+
+   task turn_input;
+      if (uif.dir) begin
+         uif.cb.data <= 8'hz;
+         uif.cb.dir <= 0;
+      end
+      driving_out = 0;
+   endtask
+
    task write_data(input logic [7:0] data);
       if (uif.dir)
         uif.cb.data <= data;
@@ -12,53 +31,28 @@ module ulpi_tb_syn(ulpi_link_if.tb ulif, ulpi_if.tb uif);
       @(uif.cb);
    endtask
 
-   task turn_output;
-      disable phy_recv_cmd;
-      if (!uif.dir) begin
-         uif.cb.dir <= 1;
-         @(uif.cb);
-      end
-   endtask
-
-   task turn_input;
-      if (uif.dir) begin
-         uif.cb.data <= 8'hz;
-         uif.cb.dir <= 0;
-         @(uif.cb);
-      end
+   task send_rxcmd(logic [7:0] rxcmd);
+      turn_output;
+      write_data(rxcmd);
+      turn_input;
    endtask
 
    // phy -> link
    task send_incoming_data(int len);
       uif.cb.nxt <= 1;
+      turn_output;
       repeat (len) begin
          write_data($random());
       end
       uif.cb.nxt <= 0;
+      turn_input;
    endtask // send_incoming_data
-
-   // system -> link
-   task send_cmd(int len);
-      logic [7:0] cmd;
-
-      $display("%d: sending %d bytes", $time, len);
-      repeat (len) begin
-         cmd = $random();
-         ulif.cb.cmd <= cmd;
-         $display("%d: cmd out %h", $time, cmd);
-
-         ulif.cb.cmd_strobe <= 1;
-         do
-           @(ulif.cb);
-         while (ulif.cb.cmd_busy);
-         ulif.cb.cmd_strobe <= 0;
-      end
-      @(ulif.cb);
-   endtask // send_cmd
 
    task phy_recv_cmd;
       automatic int waiting = 1;
       automatic int r;
+
+      // XXX handle reg read/write
 
       $display("%d: incoming cmd", $time);
       while (!uif.cb.stp) begin
@@ -81,43 +75,68 @@ module ulpi_tb_syn(ulpi_link_if.tb ulif, ulpi_if.tb uif);
       $display("%d: end cmd: %x", $time, uif.cb.data);
    endtask
 
-
    always_ff @(uif.cb) begin
-      if (uif.dir == 0 && uif.cb.data != 8'h00)
+      if (uif.dir == 0 && uif.cb.data != 8'h00 && !driving_out)
         phy_recv_cmd;
    end
 
+
+   // system -> link -> phy
+   task write_reg(int regno, logic [7:0] data);
+      ulif.cb.reg_addr        <= regno;
+      ulif.cb.reg_data_write  <= data;
+      ulif.cb.reg_read_nwrite <= 0;
+      ulif.cb.reg_enable      <= 1;
+
+      do begin
+         @(uif.cb);
+         ulif.cb.reg_enable <= 0;
+      end while (!ulif.cb.reg_done);
+   endtask
+
+   task read_reg(int regno, output logic [7:0] data);
+      ulif.cb.reg_addr        <= regno;
+      ulif.cb.reg_read_nwrite <= 1;
+      ulif.cb.reg_enable      <= 1;
+
+      do begin
+         @(uif.cb);
+         ulif.cb.reg_enable <= 0;
+      end while (!ulif.cb.reg_done);
+      $display("%d: read reg %x", $time, ulif.cb.reg_data_read);
+      data <= ulif.cb.reg_data_read;
+   endtask
+
    initial begin
+      logic [7:0] regdata;
+
       ulif.reset <= 0;
       #5 ulif.reset <= 1;
       #20 ulif.reset <= 0;
       repeat (2)
         @(uif.cb);
 
-      turn_output;
-      write_data(8'h23);
-      turn_input;
-      turn_output;
-      write_data(8'h42);
+      send_rxcmd(8'h23);
+      send_rxcmd(8'h42);
+      @(uif.cb);
       send_incoming_data(4);
-      write_data(8'hf0);
+      send_rxcmd(8'hf0);
       send_incoming_data(4);
-      write_data(8'h23);
-      turn_input;
+      send_rxcmd(8'h23);
 
       repeat (3)
         @(uif.cb);
-      send_cmd(4);
+      write_reg(1, 2);
       fork
          begin
-            repeat (4)
+            repeat (1)
               @(uif.cb);
-            turn_output;
             send_incoming_data(3);
-            turn_input;
          end
-         send_cmd(3);
+         write_reg(3, 4);
       join
+
+      read_reg(6, regdata);
    end
 endmodule
 
@@ -145,11 +164,14 @@ module ulpi_tb;
    end
 
    initial begin
-      uif.cb.dir <= 0;
-      uif.dir <= 0;
-      uif.nxt <= 0;
-      ulif.cmd_strobe <= 0;
-      ulif.cmd <= 0;
+      uif.cb.dir              <= 0;
+      uif.dir                 <= 0;
+      uif.nxt                 <= 0;
+
+      ulif.reg_addr        <= 0;
+      ulif.reg_data_write  <= 0;
+      ulif.reg_enable      <= 0;
+      ulif.reg_read_nwrite <= 0;
    end
 
 

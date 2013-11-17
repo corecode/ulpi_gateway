@@ -1,3 +1,5 @@
+`default_nettype none
+
 module ulpi_tb_syn(ulpi_link_if.tb ulif, ulpi_if.tb uif);
    default clocking @uif.cb;
    endclocking;
@@ -49,30 +51,41 @@ module ulpi_tb_syn(ulpi_link_if.tb ulif, ulpi_if.tb uif);
    endtask // send_incoming_data
 
    task phy_recv_cmd;
-      automatic int waiting = 1;
-      automatic int r;
-
-      // XXX handle reg read/write
+      automatic logic [7:0] cmd;
 
       $display("%d: incoming cmd", $time);
-      while (!uif.cb.stp) begin
-         if (!waiting)
-           $display("%d: data %x", $time, uif.cb.data);
+      cmd = uif.cb.data;
+      $display("%d: cmd %x", $time, cmd);
 
-         r = $random();
-         if (r & 1)
-           waiting  = 0;
-         else
-           waiting  = 1;
+      uif.cb.nxt <= 1;
+      @(uif.cb);
 
-         if (waiting)
-           $display("%d: wait", $time);
+      case (cmd[7:6])
+        2'b10: begin            // REGW
+           automatic logic [7:0] data;
 
-         uif.cb.nxt <= !waiting;
-         @(uif.cb);
-         uif.cb.nxt <= 0;
-      end
-      $display("%d: end cmd: %x", $time, uif.cb.data);
+           @(uif.cb);
+           uif.cb.nxt   <= 0;
+           data          = uif.cb.data;
+           $display("%d: write reg %x <= %x", $time, cmd[5:0], data);
+           @(uif.cb);
+           assert (uif.cb.stp == 1) else $error("no stp from link", $time);
+        end
+        2'b11: begin            // REGR
+           automatic logic [7:0] data;
+
+           uif.cb.nxt <= 0;
+           uif.cb.dir <= 1;
+           @(uif.cb);
+           data = $random();
+           $display("%d: read reg %x => %x", $time, cmd[5:0], data);
+           uif.cb.data <= data;
+           @(uif.cb);
+           uif.cb.data <= 8'hzz;
+           uif.cb.dir <= 0;
+        end
+      endcase
+      @(uif.cb);
    endtask
 
    always_ff @(uif.cb) begin

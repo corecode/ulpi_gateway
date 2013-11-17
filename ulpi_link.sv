@@ -1,3 +1,4 @@
+`default_nettype none
 `timescale 1 ns / 100 ps
 
 module ulpi_link (
@@ -19,35 +20,6 @@ module ulpi_link (
    logic is_valid_data;
    logic is_bus_ours;
 
-   assign is_bus_turnaround = uif.dir != ulpi_dir_r;
-   assign is_bus_ours       = !uif.dir && !is_bus_turnaround;
-   assign is_valid_data     = ulpi_dir_r && !is_bus_turnaround;
-
-   always_ff @(posedge uif.clk or posedge ulif.reset) begin
-      if (ulif.reset) begin
-         ulif.data_valid    <= 0;
-         ulif.data          <= 0;
-         ulif.rx_cmd        <= 0;
-         ulif.reg_data_read <= 0;
-         ulpi_dir_r         <= 0;
-      end else begin
-         ulpi_dir_r      <= uif.dir;
-
-         if (is_valid_data) begin
-            if (uif.nxt) begin
-               ulif.data       <= uif.data;
-               ulif.data_valid <= 1;
-            end else begin
-               ulif.rx_cmd     <= uif.data;
-               ulif.data_valid <= 0;
-            end
-         end else begin
-            ulif.data_valid <= 0;
-         end
-      end
-   end
-
-
    enum logic [2:0] {
       IDLE,
       WRITE_ADDR,
@@ -58,30 +30,25 @@ module ulpi_link (
    } state, next_state;
    logic [7:0] out_data;
 
+   assign uif.stp  = state == FINISH;
+   assign ulif.reg_done  = state == FINISH;
+
+   assign is_bus_turnaround = uif.dir != ulpi_dir_r;
+   assign is_bus_ours       = !uif.dir && !is_bus_turnaround;
+   assign is_valid_data     = ulpi_dir_r && !is_bus_turnaround;
+
    always_ff @(posedge uif.clk or posedge ulif.reset)
      if (ulif.reset)
        state <= IDLE;
      else
        state <= next_state;
 
-   always_comb
-     unique case (state)
-       IDLE:
-         out_data <= {NOOP,6'b0};
-       READ_ADDR:
-         out_data <= {REGR,ulif.reg_addr};
-       READ_DATA:
-         out_data <= 8'hzz;
-       WRITE_ADDR:
-         out_data <= {REGW,ulif.reg_addr};
-       WRITE_DATA:
-         out_data <= ulif.reg_data_write;
-       FINISH:
-         out_data <= 8'h00;
-     endcase
-
-   assign uif.stp  = state == FINISH;
-   assign ulif.reg_done = state == FINISH;
+   always_ff @(posedge uif.clk or posedge ulif.reset)
+     if (ulif.reset)
+       ulif.reg_data_read <= 0;
+     else
+       if (state == READ_DATA && !is_bus_turnaround)
+         ulif.reg_data_read <= uif.data;
 
    always_comb begin
       next_state <= state;
@@ -109,6 +76,45 @@ module ulpi_link (
       endcase
    end
 
+   always_comb
+     unique case (state)
+       IDLE:
+         out_data <= {NOOP,6'b0};
+       READ_ADDR:
+         out_data <= {REGR,ulif.reg_addr};
+       READ_DATA:
+         out_data <= 8'hzz;
+       WRITE_ADDR:
+         out_data <= {REGW,ulif.reg_addr};
+       WRITE_DATA:
+         out_data <= ulif.reg_data_write;
+       FINISH:
+         out_data <= 8'h00;
+     endcase
+
    assign uif.data          = is_bus_ours ? out_data : 8'hzz;
+
+   always_ff @(posedge uif.clk or posedge ulif.reset) begin
+      if (ulif.reset) begin
+         ulif.data_valid    <= 0;
+         ulif.data          <= 0;
+         ulif.rx_cmd        <= 0;
+         ulpi_dir_r         <= 0;
+      end else begin
+         ulpi_dir_r      <= uif.dir;
+
+         if (is_valid_data && state == IDLE) begin
+            if (uif.nxt) begin
+               ulif.data       <= uif.data;
+               ulif.data_valid <= 1;
+            end else begin
+               ulif.rx_cmd     <= uif.data;
+               ulif.data_valid <= 0;
+            end
+         end else begin
+            ulif.data_valid <= 0;
+         end
+      end
+   end
 
 endmodule

@@ -8,6 +8,8 @@
 add_file -verilog -lib work "ulpi_link.sv" 
 add_file -verilog -lib work "ulpi_if.sv" 
 add_file -verilog -lib work "ulpi_link_if.sv" 
+add_file -verilog -lib work "spi_slave.sv" 
+add_file -verilog -lib work "spi_tb.sv" 
 #implementation: "ulpi_gateway_Implmnt"
 impl -add ulpi_gateway_Implmnt -type fpga
 
@@ -15,6 +17,7 @@ impl -add ulpi_gateway_Implmnt -type fpga
 #implementation attributes
 
 set_option -vlog_std sysv
+set_option -num_startend_points 5
 set_option -project_relative_includes 1
 
 #device options
@@ -43,12 +46,18 @@ set_option -update_models_cp 0
 set_option -fix_gated_and_generated_clocks 1
 set_option -run_prop_extract 1
 
+# timing_analyst_options
+set_option -reporting_output_srm 0
+
 # sequential_optimization_options
 set_option -symbolic_fsm_compiler 1
 
 # Compiler Options
 set_option -compiler_compatible 0
 set_option -resource_sharing 1
+
+#timing report file option
+set_option -reporting_filename "./ulpi_gateway_syn.ta"
 
 #automatic place and route (vendor) options
 set_option -write_apr_constraint 1

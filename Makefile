@@ -1,5 +1,9 @@
 SRCS=	ulpi_link.sv ulpi_if.sv ulpi_link_if.sv
 TBS=	ulpi_tb.sv
+
+SRCS+=	spi_slave.sv
+TBS+=	spi_tb.sv
+
 SYNPLIFYPRJ=	ulpi_gateway_syn.prj
 
 MODELSIMDIR?=	/opt/altera/13.1/modelsim_ase/linux

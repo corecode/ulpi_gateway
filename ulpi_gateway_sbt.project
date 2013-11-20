@@ -4,7 +4,7 @@ Version=Lattice Semiconductor Corporation iCEcube - Release: 2013.03.23358 - Bui
 ProjectName=ulpi_gateway
 Vendor=SiliconBlue
 Synthesis=synplify
-ProjectVFiles=ulpi_link.sv=work,ulpi_if.sv=work,ulpi_link_if.sv=work
+ProjectVFiles=ulpi_link.sv=work,ulpi_if.sv=work,ulpi_link_if.sv=work,spi_slave.sv=work,spi_tb.sv=work
 ProjectCFiles=
 CurImplementation=ulpi_gateway_Implmnt
 Implementations=ulpi_gateway_Implmnt

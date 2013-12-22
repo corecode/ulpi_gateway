@@ -1,3 +1,6 @@
+`default_nettype none
+`timescale 1 ns / 100 ps
+
 interface ulpi_if(input wire clk);
    logic       dir;
    logic       nxt;

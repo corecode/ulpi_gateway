@@ -1,4 +1,5 @@
 `default_nettype none
+`timescale 1 ns / 100 ps
 
 module ulpi_tb_syn(ulpi_link_if.tb ulif, ulpi_if.tb uif);
    default clocking @uif.cb;

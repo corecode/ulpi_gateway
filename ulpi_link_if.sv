@@ -1,3 +1,6 @@
+`default_nettype none
+`timescale 1 ns / 100 ps
+
 interface ulpi_link_if(input wire clk);
    logic       reset;
    logic [7:0] data;

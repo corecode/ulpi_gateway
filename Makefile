@@ -25,15 +25,21 @@ all: simulate
 work:
 	${MODELSIMDIR}/vlib work
 
+lint: ${SRCS:.sv=-lint}
+
+%-lint: %.sv
+	verilator -Dsynthesis --lint-only -Wall $^
+
 compile: compile-modelsim compile-synplify
 
-compile-modelsim: work ${SRCS} ${TBS}
+compile-modelsim.stamp: work ${SRCS} ${TBS}
 	${MODELSIMDIR}/vlog -lint ${SRCS} ${TBS}
+	touch $@
 
 compile-synplify:
 	${SYNPLIFY}
 
 simulate: $(patsubst %.sv,%.vcd,${TBS})
 
-%.vcd: compile-modelsim
+%.vcd: compile-modelsim.stamp
 	${MODELSIMDIR}/vsim -c -do 'run 1000ns;quit' ${@:.vcd=}
